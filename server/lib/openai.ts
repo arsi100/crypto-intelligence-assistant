@@ -5,9 +5,7 @@ if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY is required");
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI();
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 export async function processMessage(
@@ -15,7 +13,8 @@ export async function processMessage(
   cryptoData: CryptoPrice[],
   newsData: NewsArticle[]
 ) {
-  const prompt = `
+  try {
+    const prompt = `
 You are a cryptocurrency expert assistant. Analyze the following user message and provide insights based on the current market data and news.
 
 User message: ${message}
@@ -29,16 +28,24 @@ ${JSON.stringify(newsData, null, 2)}
 Provide a helpful, concise response that addresses the user's query and incorporates relevant market data and news.
 `;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.7,
-    max_tokens: 500,
-  });
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 500,
+    });
 
-  return {
-    message: response.choices[0].message.content,
-    cryptoData,
-    newsData,
-  };
+    if (!response.choices[0].message.content) {
+      throw new Error("No response from AI");
+    }
+
+    return {
+      message: response.choices[0].message.content,
+      cryptoData,
+      newsData,
+    };
+  } catch (error) {
+    console.error("Error processing message with OpenAI:", error);
+    throw new Error("Failed to process message with AI");
+  }
 }
