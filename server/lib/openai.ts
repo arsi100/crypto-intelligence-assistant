@@ -12,25 +12,35 @@ export async function processMessage(
   message: string,
   cryptoData: CryptoPrice[],
   newsData: NewsArticle[]
-) {
+): Promise<{ message: string; cryptoData: CryptoPrice[]; newsData: NewsArticle[] }> {
   try {
-    const prompt = `
-You are a cryptocurrency expert assistant. Analyze the following user message and provide insights based on the current market data and news.
+    const systemMessage = `You are a cryptocurrency expert assistant. Your role is to:
+1. Provide market insights based on real-time crypto prices
+2. Share relevant news updates
+3. Answer questions about cryptocurrency trends
+4. Give clear, concise explanations
+Keep responses focused and informative.`;
+
+    const prompt = `Analyze this user message and provide insights using the current market data and news:
 
 User message: ${message}
 
 Current crypto prices:
-${JSON.stringify(cryptoData, null, 2)}
+${cryptoData.map(crypto => 
+  `${crypto.name} (${crypto.symbol}): $${crypto.current_price} (${crypto.price_change_percentage_24h.toFixed(2)}% 24h)`
+).join('\n')}
 
 Latest news:
-${JSON.stringify(newsData, null, 2)}
-
-Provide a helpful, concise response that addresses the user's query and incorporates relevant market data and news.
-`;
+${newsData.map(article => 
+  `- ${article.title} (${article.source})`
+).join('\n')}`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        { role: "system", content: systemMessage },
+        { role: "user", content: prompt }
+      ],
       temperature: 0.7,
       max_tokens: 500,
     });
