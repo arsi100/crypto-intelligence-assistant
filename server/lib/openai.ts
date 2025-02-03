@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { CryptoPrice, NewsArticle } from "../../client/src/lib/types";
+import type { CryptoPrice, NewsArticle, TradingSignal, DailyAnalysis } from "../../client/src/lib/types";
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY is required");
@@ -29,6 +29,8 @@ export async function processMessage(
    - Analyze trading volume and market depth
    - Compare with broader market trends
    - Factor in market capitalization and supply metrics
+   - Target 1% daily gains with appropriate risk management
+   - Provide specific entry/exit points and stop-loss levels
 
 3. For specific coin analysis:
    - Compare with relevant competitors
@@ -36,6 +38,8 @@ export async function processMessage(
    - Assess market positioning and adoption metrics
    - Analyze volume-to-market-cap ratios
    - Consider circulating supply impact
+   - Provide clear buy/sell/hold signals with confidence scores
+   - Include risk assessment and potential downsides
 
 Keep responses comprehensive yet accessible, focusing on actionable insights.
 When making predictions, explain your reasoning clearly and include supporting data points.`;
@@ -67,13 +71,32 @@ Technical Analysis Focus:
 2. Analyze volume trends and market depth
 3. Consider market dominance and sector rotation
 4. Factor in news sentiment impact
+5. Target 1% daily gains with appropriate risk management
+6. Provide specific trading signals with confidence scores
+
+If the user is requesting trading signals, format your response as follows:
+{
+  "analysis": "Your detailed market analysis here...",
+  "signals": [
+    {
+      "coin": "BTC",
+      "action": "buy/sell/hold",
+      "entry_price": 123456,
+      "stop_loss": 123000,
+      "take_profit": 124000,
+      "confidence": 0.85,
+      "reasoning": "Brief explanation of the signal"
+    }
+  ]
+}
 
 Provide a detailed analysis that:
 1. Directly answers the user's query
 2. Includes relevant technical indicators and market metrics
 3. Identifies potential opportunities and risks
 4. Explains the reasoning behind predictions using data points
-5. Considers broader market context and correlations`;
+5. Considers broader market context and correlations
+6. Includes specific trading signals when requested`;
 
     console.log("Sending request to OpenAI...");
     const response = await openai.chat.completions.create({
@@ -84,6 +107,7 @@ Provide a detailed analysis that:
       ],
       temperature: 0.7,
       max_tokens: 1000,
+      response_format: { type: "json_object" }
     });
 
     if (!response.choices[0].message.content) {
@@ -91,9 +115,15 @@ Provide a detailed analysis that:
     }
 
     console.log("Received response from OpenAI");
+    const content = JSON.parse(response.choices[0].message.content);
+
     return {
-      message: response.choices[0].message.content,
-      cryptoData,
+      message: content.analysis,
+      cryptoData: cryptoData.map(crypto => ({
+        ...crypto,
+        trade_signal: content.signals?.find(s => s.coin === crypto.symbol)?.action || 'hold',
+        confidence_score: content.signals?.find(s => s.coin === crypto.symbol)?.confidence || 0.5
+      })),
       newsData,
     };
   } catch (error) {
