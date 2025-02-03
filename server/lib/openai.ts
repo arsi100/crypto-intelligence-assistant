@@ -7,7 +7,6 @@ if (!process.env.OPENAI_API_KEY) {
 
 const openai = new OpenAI();
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 export async function processMessage(
   message: string,
   cryptoData: CryptoPrice[],
@@ -62,20 +61,22 @@ Provide a detailed analysis that:
 3. Identifies potential opportunities or risks
 4. Explains the reasoning behind any predictions`;
 
+    console.log("Sending request to OpenAI...");
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-3.5-turbo",  // Changed to a stable model
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 1000, // Increased for more detailed responses
+      max_tokens: 1000,
     });
 
     if (!response.choices[0].message.content) {
-      throw new Error("No response from AI");
+      throw new Error("No response content from OpenAI");
     }
 
+    console.log("Received response from OpenAI");
     return {
       message: response.choices[0].message.content,
       cryptoData,
@@ -83,6 +84,9 @@ Provide a detailed analysis that:
     };
   } catch (error) {
     console.error("Error processing message with OpenAI:", error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to process message: ${error.message}`);
+    }
     throw new Error("Failed to process message with AI");
   }
 }
