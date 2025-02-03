@@ -10,10 +10,10 @@ import { useEffect, useRef, useState } from "react";
 export default function ChatWindow() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [pendingMessage, setPendingMessage] = useState<Message | null>(null);
 
-  const { data: messages = [] } = useQuery({
+  const { data: messages = [], isLoading } = useQuery({
     queryKey: ["/api/messages"],
     staleTime: 0,
   });
@@ -49,18 +49,18 @@ export default function ChatWindow() {
     },
   });
 
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   // Auto-scroll when messages change or during thinking state
   useEffect(() => {
-    const scrollToBottom = () => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
-    };
-
+    // Initial scroll
     scrollToBottom();
     // Add a small delay to ensure content is rendered
     const timeoutId = setTimeout(scrollToBottom, 100);
-
     return () => clearTimeout(timeoutId);
   }, [displayMessages, mutation.isPending]);
 
@@ -72,20 +72,31 @@ export default function ChatWindow() {
 
   return (
     <div className="h-[80vh] flex flex-col">
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
-        {displayMessages.map((message: Message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
-        {mutation.isPending && (
-          <MessageBubble
-            message={{
-              id: -1,
-              content: "Thinking...",
-              isAi: true,
-              timestamp: new Date().toISOString(),
-            }}
-          />
-        )}
+      <ScrollArea className="flex-1">
+        <div className="space-y-4 p-4 min-h-full">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <span>Loading messages...</span>
+            </div>
+          ) : (
+            <>
+              {displayMessages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
+              ))}
+              {mutation.isPending && (
+                <MessageBubble
+                  message={{
+                    id: -1,
+                    content: "Thinking...",
+                    isAi: true,
+                    timestamp: new Date().toISOString(),
+                  }}
+                />
+              )}
+              <div ref={messagesEndRef} className="h-4" />
+            </>
+          )}
+        </div>
       </ScrollArea>
       <InputArea onSend={handleSend} disabled={mutation.isPending} />
     </div>
