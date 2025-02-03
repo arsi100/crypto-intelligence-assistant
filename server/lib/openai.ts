@@ -13,7 +13,7 @@ export async function processMessage(
   newsData: NewsArticle[]
 ): Promise<{ message: string; cryptoData: CryptoPrice[]; newsData: NewsArticle[] }> {
   try {
-    const systemMessage = `You are an expert cryptocurrency analyst with deep knowledge of technical analysis, market psychology, and blockchain technology. Your role is to:
+    const systemMessage = `You are an expert cryptocurrency analyst with deep knowledge of technical analysis, market psychology, and blockchain technology. Your role is to provide analysis in JSON format. Your responses must be valid JSON objects containing 'analysis' and optional 'signals' fields.
 
 1. Provide detailed market analysis considering:
    - Price movements and technical indicators (RSI, MACD, Moving Averages)
@@ -41,10 +41,23 @@ export async function processMessage(
    - Provide clear buy/sell/hold signals with confidence scores
    - Include risk assessment and potential downsides
 
-Keep responses comprehensive yet accessible, focusing on actionable insights.
-When making predictions, explain your reasoning clearly and include supporting data points.`;
+Format your response as a JSON object with this structure:
+{
+  "analysis": "Your detailed market analysis here",
+  "signals": [
+    {
+      "coin": "BTC",
+      "action": "buy/sell/hold",
+      "entry_price": 123456,
+      "stop_loss": 123000,
+      "take_profit": 124000,
+      "confidence": 0.85,
+      "reasoning": "Brief explanation"
+    }
+  ]
+}`;
 
-    const prompt = `Analyze this user message and provide insights using the current market data and news:
+    const prompt = `Analyze this user message and provide insights using the current market data and news. Remember to respond in JSON format:
 
 User message: ${message}
 
@@ -74,29 +87,13 @@ Technical Analysis Focus:
 5. Target 1% daily gains with appropriate risk management
 6. Provide specific trading signals with confidence scores
 
-If the user is requesting trading signals, format your response as follows:
-{
-  "analysis": "Your detailed market analysis here...",
-  "signals": [
-    {
-      "coin": "BTC",
-      "action": "buy/sell/hold",
-      "entry_price": 123456,
-      "stop_loss": 123000,
-      "take_profit": 124000,
-      "confidence": 0.85,
-      "reasoning": "Brief explanation of the signal"
-    }
-  ]
-}
-
-Provide a detailed analysis that:
-1. Directly answers the user's query
+Provide a JSON response that:
+1. Directly answers the user's query in the "analysis" field
 2. Includes relevant technical indicators and market metrics
 3. Identifies potential opportunities and risks
 4. Explains the reasoning behind predictions using data points
 5. Considers broader market context and correlations
-6. Includes specific trading signals when requested`;
+6. Includes specific trading signals in the "signals" array when requested`;
 
     console.log("Sending request to OpenAI...");
     const response = await openai.chat.completions.create({
