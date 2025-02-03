@@ -13,7 +13,7 @@ export async function processMessage(
   newsData: NewsArticle[]
 ): Promise<{ message: string; cryptoData: CryptoPrice[]; newsData: NewsArticle[] }> {
   try {
-    const systemMessage = `You are an expert cryptocurrency analyst with deep knowledge of technical analysis, market psychology, and blockchain technology. Your role is to provide analysis in JSON format. Your responses must be valid JSON objects containing 'analysis' and optional 'signals' fields.
+    const systemMessage = `You are an expert cryptocurrency analyst with deep knowledge of technical analysis, market psychology, and blockchain technology. Your role is to:
 
 1. Provide detailed market analysis considering:
    - Price movements and technical indicators (RSI, MACD, Moving Averages)
@@ -41,23 +41,17 @@ export async function processMessage(
    - Provide clear buy/sell/hold signals with confidence scores
    - Include risk assessment and potential downsides
 
-Format your response as a JSON object with this structure:
-{
-  "analysis": "Your detailed market analysis here",
-  "signals": [
-    {
-      "coin": "BTC",
-      "action": "buy/sell/hold",
-      "entry_price": 123456,
-      "stop_loss": 123000,
-      "take_profit": 124000,
-      "confidence": 0.85,
-      "reasoning": "Brief explanation"
-    }
-  ]
-}`;
+Keep responses comprehensive yet accessible, focusing on actionable insights.
+When making predictions, explain your reasoning clearly and include supporting data points.
 
-    const prompt = `Analyze this user message and provide insights using the current market data and news. Remember to respond in JSON format:
+If giving trading signals, structure them clearly in your response like this:
+---SIGNALS START---
+BTC: [ACTION] at $[PRICE] (Confidence: [SCORE])
+Stop Loss: $[PRICE] | Take Profit: $[PRICE]
+Reasoning: [Brief explanation]
+---SIGNALS END---`;
+
+    const prompt = `Analyze this user message and provide insights using the current market data and news:
 
 User message: ${message}
 
@@ -87,13 +81,12 @@ Technical Analysis Focus:
 5. Target 1% daily gains with appropriate risk management
 6. Provide specific trading signals with confidence scores
 
-Provide a JSON response that:
-1. Directly answers the user's query in the "analysis" field
+Provide a detailed analysis that:
+1. Directly answers the user's query
 2. Includes relevant technical indicators and market metrics
 3. Identifies potential opportunities and risks
 4. Explains the reasoning behind predictions using data points
-5. Considers broader market context and correlations
-6. Includes specific trading signals in the "signals" array when requested`;
+5. Considers broader market context and correlations`;
 
     console.log("Sending request to OpenAI...");
     const response = await openai.chat.completions.create({
@@ -104,7 +97,6 @@ Provide a JSON response that:
       ],
       temperature: 0.7,
       max_tokens: 1000,
-      response_format: { type: "json_object" }
     });
 
     if (!response.choices[0].message.content) {
@@ -112,16 +104,58 @@ Provide a JSON response that:
     }
 
     console.log("Received response from OpenAI");
-    const content = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content;
+
+    // Parse trading signals if they exist
+    const signals: TradingSignal[] = [];
+    if (content.includes('---SIGNALS START---') && content.includes('---SIGNALS END---')) {
+      const signalsText = content.split('---SIGNALS START---')[1].split('---SIGNALS END---')[0];
+      const signalLines = signalsText.split('\n').filter(line => line.trim());
+
+      for (let i = 0; i < signalLines.length; i += 3) {
+        const actionLine = signalLines[i];
+        const levelsLine = signalLines[i + 1];
+        const reasoningLine = signalLines[i + 2];
+
+        if (actionLine && levelsLine && reasoningLine) {
+          const [symbol, rest] = actionLine.split(':');
+          const action = rest.includes('BUY') ? 'buy' : rest.includes('SELL') ? 'sell' : 'hold';
+          const price = parseFloat(rest.match(/\$(\d+(\.\d+)?)/)?.[1] || '0');
+          const confidence = parseFloat(rest.match(/Confidence: (0\.\d+)/)?.[1] || '0.5');
+
+          const stopLoss = parseFloat(levelsLine.match(/Stop Loss: \$(\d+(\.\d+)?)/)?.[1] || '0');
+          const takeProfit = parseFloat(levelsLine.match(/Take Profit: \$(\d+(\.\d+)?)/)?.[1] || '0');
+
+          const reasoning = reasoningLine.replace('Reasoning:', '').trim();
+
+          signals.push({
+            coin_symbol: symbol.trim(),
+            action,
+            target_price: price,
+            stop_loss: stopLoss,
+            take_profit: takeProfit,
+            confidence_score: confidence,
+            reasoning,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+    }
+
+    // Update crypto data with signals
+    const updatedCryptoData = cryptoData.map(crypto => {
+      const signal = signals.find(s => s.coin_symbol === crypto.symbol);
+      return {
+        ...crypto,
+        trade_signal: signal?.action || 'hold',
+        confidence_score: signal?.confidence_score || 0.5
+      };
+    });
 
     return {
-      message: content.analysis,
-      cryptoData: cryptoData.map(crypto => ({
-        ...crypto,
-        trade_signal: content.signals?.find(s => s.coin === crypto.symbol)?.action || 'hold',
-        confidence_score: content.signals?.find(s => s.coin === crypto.symbol)?.confidence || 0.5
-      })),
-      newsData,
+      message: content,
+      cryptoData: updatedCryptoData,
+      newsData
     };
   } catch (error) {
     console.error("Error processing message with OpenAI:", error);
