@@ -2,6 +2,7 @@ import { useState, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SendIcon } from "lucide-react";
+import { Loader2 } from "lucide-react"; // Added import for Loader2
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -36,11 +37,15 @@ export function MessageInput({ onSend, isLoading }: MessageInputProps) {
         onChange={(e) => setMessage(e.target.value)}
         onKeyDown={handleKeyPress}
         placeholder="Ask about crypto markets..."
-        className="resize-none"
-        rows={2}
+        className="resize-none min-h-[80px]"
+        disabled={isLoading}
       />
       <Button type="submit" disabled={isLoading || !message.trim()}>
-        <SendIcon className="h-4 w-4" />
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <SendIcon className="h-4 w-4" />
+        )}
       </Button>
     </form>
   );

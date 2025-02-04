@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 export function ChatWindow() {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -31,14 +31,16 @@ export function ChatWindow() {
   });
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    // Scroll to bottom when messages change
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current;
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
   }, [messages]);
 
   return (
     <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
         <div className="space-y-4">
           {isLoadingHistory ? (
             <div className="flex justify-center p-4">
@@ -64,7 +66,6 @@ export function ChatWindow() {
               </div>
             </Card>
           )}
-          <div ref={scrollRef} />
         </div>
       </ScrollArea>
 
