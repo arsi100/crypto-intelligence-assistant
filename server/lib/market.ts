@@ -1,6 +1,6 @@
 import type { CryptoPrice, MarketData } from "../../client/src/lib/types";
 
-const CRYPTOCOMPARE_API = "https://min-api.cryptocompare.com/data/v2";
+const CRYPTOCOMPARE_API = "https://min-api.cryptocompare.com/data/pricemultifull";
 
 if (!process.env.CRYPTOCOMPARE_API_KEY) {
   throw new Error("CRYPTOCOMPARE_API_KEY is required");
@@ -8,27 +8,41 @@ if (!process.env.CRYPTOCOMPARE_API_KEY) {
 
 // Map raw API response to our CryptoPrice type
 function mapToCryptoPrice(symbol: string, data: any): CryptoPrice {
-  const price = {
-    id: symbol.toLowerCase(),
-    symbol: symbol,
-    name: symbol,
-    current_price: data.USD.PRICE,
-    price_change_percentage_24h: data.USD.CHANGEPCT24HOUR,
-    market_cap: data.USD.MKTCAP,
-    total_volume: data.USD.TOTALVOLUME24H,
-    circulating_supply: data.USD.SUPPLY,
-    last_updated: new Date(data.USD.LASTUPDATE * 1000).toISOString()
-  };
-  console.log(`Processed price data for ${symbol}:`, price);
-  return price;
+  try {
+    const price = {
+      id: symbol.toLowerCase(),
+      symbol: symbol,
+      name: symbol,
+      current_price: data.PRICE || 0,
+      price_change_percentage_24h: data.CHANGEPCT24HOUR || 0,
+      market_cap: data.MKTCAP || 0,
+      total_volume: data.TOTALVOLUME24H || 0,
+      circulating_supply: data.SUPPLY || 0,
+      last_updated: new Date().toISOString()
+    };
+    console.log(`Processed price data for ${symbol}:`, price);
+    return price;
+  } catch (error) {
+    console.error(`Error mapping price data for ${symbol}:`, error);
+    throw error;
+  }
 }
 
 export async function getMarketPrices(symbols: string[] = ["BTC", "ETH", "SOL", "LINK", "MATIC", "SHIB", "LTC", "XRP"]): Promise<CryptoPrice[]> {
   try {
     console.log("Fetching market prices for symbols:", symbols);
-    const response = await fetch(
-      `${CRYPTOCOMPARE_API}/pricemultifull?fsyms=${symbols.join(",")}&tsyms=USD&api_key=${process.env.CRYPTOCOMPARE_API_KEY}`
-    );
+    const url = new URL(CRYPTOCOMPARE_API);
+    url.searchParams.append("fsyms", symbols.join(","));
+    url.searchParams.append("tsyms", "USD");
+    url.searchParams.append("api_key", process.env.CRYPTOCOMPARE_API_KEY || "");
+
+    console.log("Requesting URL:", url.toString());
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Apikey ${process.env.CRYPTOCOMPARE_API_KEY}`
+      }
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -44,9 +58,12 @@ export async function getMarketPrices(symbols: string[] = ["BTC", "ETH", "SOL", 
       throw new Error("Invalid API response format - missing RAW data");
     }
 
-    return Object.entries(data.RAW).map(([symbol, data]: [string, any]) => 
-      mapToCryptoPrice(symbol, data)
+    const prices = Object.entries(data.RAW).map(([symbol, coinData]: [string, any]) => 
+      mapToCryptoPrice(symbol, coinData.USD)
     );
+
+    console.log("Processed prices:", prices);
+    return prices;
   } catch (error) {
     console.error("Error fetching market prices:", error);
     throw error;
