@@ -9,7 +9,7 @@ export const chats = pgTable("chats", {
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
-  chatId: serial("chat_id").references(() => chats.id),
+  chat_id: serial("chat_id").references(() => chats.id),
   content: text("content").notNull(),
   role: text("role").notNull(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
@@ -22,7 +22,7 @@ export const chatRelations = relations(chats, ({ many }) => ({
 
 export const messageRelations = relations(messages, ({ one }) => ({
   chat: one(chats, {
-    fields: [messages.chatId],
+    fields: [messages.chat_id],
     references: [chats.id]
   })
 }));

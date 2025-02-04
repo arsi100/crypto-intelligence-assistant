@@ -20,7 +20,7 @@ export function registerRoutes(app: Express): Server {
 
       // Store user message
       await db.insert(messages).values({
-        chatId,
+        chat_id: chatId,
         content: userMessage,
         role: "user"
       });
@@ -30,7 +30,7 @@ export function registerRoutes(app: Express): Server {
 
       // Store AI response
       await db.insert(messages).values({
-        chatId,
+        chat_id: chatId,
         content: response,
         role: "assistant"
       });
