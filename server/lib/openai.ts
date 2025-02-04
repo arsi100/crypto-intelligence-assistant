@@ -5,7 +5,6 @@ import { getLatestNews } from "./news";
 import { db } from "@db";
 import { messages } from "@db/schema";
 import { eq } from "drizzle-orm";
-import { createAgentTask } from "./agent";
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY is required");
@@ -36,7 +35,7 @@ export async function processMessage(
     const systemMessage = `You are an expert cryptocurrency analyst and AI agent. Your role is to:
 
 1. Analyze Market Data:
-   - Only use the provided real-time market data for analysis
+   - Use the provided real-time market data for analysis
    - Consider technical indicators and price movements
    - Look for patterns in trading volume and market cap
    - Base recommendations on actual market conditions
@@ -47,24 +46,9 @@ export async function processMessage(
    - Adapt responses based on user's knowledge level
    - Keep track of discussed topics and interests
 
-3. When acting as an agent:
-   - Identify when tasks like email alerts or notifications are needed
-   - Keep track of user preferences and alert thresholds
-   - Suggest automated actions when appropriate
-   - Be explicit about what automated tasks you can perform
+Important: Do not suggest or mention features like price alerts, email notifications, or automated tasks as these are not yet implemented. Focus only on providing market analysis and insights based on the current data.
 
-Do not reference external sources like Twitter or forums. Base all analysis solely on the provided market data, technical indicators, and news.
-
-If you identify a need for automation (like price alerts or notifications), format it in your response like this:
----TASK START---
-Type: price_alert | email_notification | trading_signal
-Parameters: {
-  "coin_symbol": "BTC",
-  "price_target": 50000,
-  "email": "user@example.com",
-  "message": "Price target reached"
-}
----TASK END---`;
+Do not reference external sources like Twitter or forums. Base all analysis solely on the provided market data, technical indicators, and news.`;
 
     const prompt = `Analyze this request using only the following real-time data:
 
@@ -103,26 +87,11 @@ User Request: ${message}`;
     }
 
     const content = response.choices[0].message.content;
-    const tasks: AgentTask[] = [];
-
-    // Parse and create agent tasks if present
-    if (content.includes('---TASK START---') && content.includes('---TASK END---')) {
-      const taskText = content.split('---TASK START---')[1].split('---TASK END---')[0];
-      const taskLines = taskText.split('\n').filter(line => line.trim());
-
-      const type = taskLines[0].split(': ')[1].trim() as AgentTask["type"];
-      const parametersText = taskLines.slice(1).join('\n');
-      const parameters = JSON.parse(parametersText.split('Parameters: ')[1]);
-
-      const task = await createAgentTask(type, parameters, chatId);
-      tasks.push(task);
-    }
 
     return {
       message: content,
       cryptoData,
-      newsData,
-      tasks: tasks.length > 0 ? tasks : undefined
+      newsData
     };
   } catch (error) {
     console.error("Error processing message with OpenAI:", error);
