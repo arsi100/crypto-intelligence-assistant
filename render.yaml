@@ -17,6 +17,22 @@ services:
         sync: false
       - key: CRYPTOCOMPARE_API_KEY
         sync: false
+    buildFilter:
+      paths:
+        - client/**
+        - server/**
+        - db/**
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=31536000
+      - path: /static/*
+        name: Cache-Control
+        value: public, max-age=31536000
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
 
 databases:
   - name: crypto_intelligence_db
