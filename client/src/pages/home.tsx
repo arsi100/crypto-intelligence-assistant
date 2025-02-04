@@ -7,7 +7,7 @@ export default function Home() {
         <h1 className="text-4xl font-bold mb-6 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
           Crypto Intelligence Assistant
         </h1>
-        <div className="bg-card rounded-lg shadow-sm">
+        <div className="bg-card rounded-lg shadow-sm h-[600px]">
           <ChatWindow />
         </div>
       </div>
