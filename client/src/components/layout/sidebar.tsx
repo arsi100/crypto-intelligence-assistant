@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpIcon, ArrowDownIcon, LineChart } from "lucide-react";
+import { ArrowUpIcon, ArrowDownIcon } from "lucide-react";
 import { getMarketData } from "@/lib/api";
 
 export function Sidebar() {
@@ -9,12 +9,12 @@ export function Sidebar() {
   });
 
   return (
-    <div className="w-80 border-r bg-sidebar p-4 h-screen overflow-y-auto">
-      <h2 className="text-xl font-bold mb-4">Market Overview</h2>
-      
-      <div className="space-y-3">
+    <div className="w-64 border-r bg-sidebar p-4 h-screen overflow-y-auto"> {/* Added width and border back */}
+      <h2 className="text-xl font-semibold mb-4">Market Overview</h2> {/* Changed font weight */}
+
+      <div className="space-y-3"> {/* Added a container for better spacing */}
         {marketData?.map((coin: any) => (
-          <Card key={coin.id} className="p-3">
+          <Card key={coin.id} className="p-3 hover:bg-accent/5 transition-colors">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="font-medium">{coin.name}</h3>
