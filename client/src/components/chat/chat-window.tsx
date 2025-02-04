@@ -63,9 +63,12 @@ export function ChatWindow() {
   });
 
   return (
-    <div className="flex flex-col h-full">
-      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-        <div className="space-y-4">
+    <div className="flex flex-col h-full bg-chat-pattern">
+      <ScrollArea 
+        ref={scrollAreaRef} 
+        className="flex-1 p-4 bg-gradient-to-b from-background/95 to-background/90 backdrop-blur-sm"
+      >
+        <div className="space-y-4 max-w-3xl mx-auto">
           {isLoadingHistory ? (
             <div className="flex justify-center p-4">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -75,17 +78,19 @@ export function ChatWindow() {
               {messages.map((msg: any) => (
                 <Card
                   key={msg.id}
-                  className={`p-4 ${
+                  className={`p-4 shadow-md backdrop-blur-sm ${
                     msg.role === "user"
-                      ? "bg-primary/90 text-primary-foreground"
-                      : "bg-secondary/80 text-secondary-foreground"
+                      ? "bg-primary/90 text-primary-foreground ml-12"
+                      : "bg-secondary/80 text-secondary-foreground mr-12"
+                  } rounded-2xl ${
+                    msg.role === "user" ? "rounded-tr-sm" : "rounded-tl-sm"
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 </Card>
               ))}
               {mutation.isPending && (
-                <Card className="p-4 bg-secondary/40 animate-pulse">
+                <Card className="p-4 bg-secondary/40 animate-pulse mr-12 rounded-2xl rounded-tl-sm backdrop-blur-sm">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <p>Analyzing market data...</p>
@@ -97,7 +102,7 @@ export function ChatWindow() {
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t">
+      <div className="p-4 border-t backdrop-blur-sm bg-background/95">
         <MessageInput
           onSend={(content) => mutation.mutate(content)}
           isLoading={mutation.isPending}
