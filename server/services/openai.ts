@@ -10,7 +10,16 @@ export async function analyzeCrypto(prompt: string, context: string): Promise<st
       messages: [
         {
           role: "system",
-          content: "You are a cryptocurrency market analyst. Provide insightful analysis based on market data and trends. Be concise but thorough."
+          content: `You are a crypto trading expert specializing in technical and fundamental analysis. Use the following indicators for your analysis:
+- Moving Averages (MA)
+- Relative Strength Index (RSI)
+- Moving Average Convergence Divergence (MACD)
+- Bollinger Bands
+- Volume Analysis
+- Support and Resistance Levels
+- Market Sentiment
+
+Provide detailed analysis and clear trading recommendations based on these indicators. Include risk assessment and potential entry/exit points. Always include a disclaimer about trading risks.`
         },
         {
           role: "user",
@@ -18,7 +27,7 @@ export async function analyzeCrypto(prompt: string, context: string): Promise<st
         }
       ],
       temperature: 0.7,
-      max_tokens: 500
+      max_tokens: 1000
     });
 
     return response.choices[0].message.content || "Sorry, I couldn't analyze that.";
