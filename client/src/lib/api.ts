@@ -1,29 +1,21 @@
-import type { Message, ChatResponse } from "./types";
+import { apiRequest } from "./queryClient";
 
-const API_BASE = "/api";
-
-export async function sendMessage(content: string): Promise<ChatResponse> {
-  const response = await fetch(`${API_BASE}/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ message: content }),
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to send message");
-  }
-
-  return response.json();
+export async function sendChatMessage(content: string) {
+  const res = await apiRequest("POST", "/api/chat", { content });
+  return res.json();
 }
 
-export async function getMessageHistory(): Promise<Message[]> {
-  const response = await fetch(`${API_BASE}/messages`);
-  
-  if (!response.ok) {
-    throw new Error("Failed to fetch message history");
-  }
+export async function getChatHistory() {
+  const res = await apiRequest("GET", "/api/chat/history");
+  return res.json();
+}
 
-  return response.json();
+export async function getMarketData() {
+  const res = await apiRequest("GET", "/api/market/top");
+  return res.json();
+}
+
+export async function getCoinData(coinId: string) {
+  const res = await apiRequest("GET", `/api/market/coin/${coinId}`);
+  return res.json();
 }

@@ -1,104 +1,63 @@
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getMessageHistory, sendMessage } from "@/lib/api";
-import { useToast } from "@/hooks/use-toast";
-import MessageBubble from "./message-bubble";
-import InputArea from "./input-area";
+import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { Message } from "@/lib/types";
-import { useEffect, useRef, useState } from "react";
+import { MessageInput } from "./message-input";
+import { sendChatMessage, getChatHistory } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
-export default function ChatWindow() {
+export function ChatWindow() {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [pendingMessage, setPendingMessage] = useState<Message | null>(null);
 
-  const { data: messages = [], isLoading } = useQuery({
-    queryKey: ["/api/messages"],
-    staleTime: 0,
+  const { data: messages } = useQuery({
+    queryKey: ["/api/chat/history"],
   });
 
-  // Combine server messages with pending message
-  const displayMessages = pendingMessage 
-    ? [...messages, pendingMessage]
-    : messages;
-
   const mutation = useMutation({
-    mutationFn: sendMessage,
-    onMutate: async (content: string) => {
-      // Optimistically add user message
-      const newMessage: Message = {
-        id: Date.now(),
-        content,
-        isAi: false,
-        timestamp: new Date().toISOString(),
-      };
-      setPendingMessage(newMessage);
-    },
+    mutationFn: sendChatMessage,
     onSuccess: () => {
-      setPendingMessage(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/chat/history"] });
     },
     onError: () => {
-      setPendingMessage(null);
       toast({
         title: "Error",
         description: "Failed to send message",
-        variant: "destructive",
+        variant: "destructive"
       });
-    },
+    }
   });
 
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
-  // Auto-scroll when messages change or during thinking state
   useEffect(() => {
-    // Initial scroll
-    scrollToBottom();
-    // Add a small delay to ensure content is rendered
-    const timeoutId = setTimeout(scrollToBottom, 100);
-    return () => clearTimeout(timeoutId);
-  }, [displayMessages, mutation.isPending]);
-
-  const handleSend = async (content: string) => {
-    if (content.trim()) {
-      mutation.mutate(content);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  };
+  }, [messages]);
 
   return (
-    <div className="h-[80vh] flex flex-col">
-      <ScrollArea className="flex-1">
-        <div className="space-y-4 p-4 min-h-full">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <span>Loading messages...</span>
-            </div>
-          ) : (
-            <>
-              {displayMessages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
-              ))}
-              {mutation.isPending && (
-                <MessageBubble
-                  message={{
-                    id: -1,
-                    content: "Thinking...",
-                    isAi: true,
-                    timestamp: new Date().toISOString(),
-                  }}
-                />
-              )}
-              <div ref={messagesEndRef} className="h-4" />
-            </>
-          )}
+    <div className="flex flex-col h-full">
+      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <div className="space-y-4">
+          {messages?.map((msg: any) => (
+            <Card
+              key={msg.id}
+              className={`p-4 ${
+                msg.role === "user" ? "bg-primary/10" : "bg-muted"
+              }`}
+            >
+              <p className="whitespace-pre-wrap">{msg.content}</p>
+            </Card>
+          ))}
         </div>
       </ScrollArea>
-      <InputArea onSend={handleSend} disabled={mutation.isPending} />
+      
+      <div className="p-4 border-t">
+        <MessageInput
+          onSend={(content) => mutation.mutate(content)}
+          isLoading={mutation.isPending}
+        />
+      </div>
     </div>
   );
 }
