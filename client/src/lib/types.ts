@@ -1,8 +1,12 @@
 export interface Message {
   id: number;
   content: string;
-  isAi: boolean;
+  role: "user" | "assistant";
   timestamp: string;
+  metadata?: {
+    cryptoData?: CryptoPrice[];
+    newsData?: NewsArticle[];
+  };
 }
 
 export interface CryptoPrice {
@@ -14,15 +18,11 @@ export interface CryptoPrice {
   market_cap: number;
   total_volume: number;
   circulating_supply: number;
-  ath: number;
-  ath_change_percentage: number;
-  atl: number;
-  atl_change_percentage: number;
   last_updated: string;
-  // Adding trading signal related fields
+  // Technical indicators
+  rsi_24h?: number;
   support_level?: number;
   resistance_level?: number;
-  rsi_24h?: number;
   trade_signal?: 'buy' | 'sell' | 'hold';
   confidence_score?: number;
 }
@@ -66,4 +66,18 @@ export interface ChatResponse {
   marketData?: MarketData;
   tradingSignals?: TradingSignal[];
   dailyAnalysis?: DailyAnalysis;
+}
+
+export interface AgentTask {
+  type: 'price_alert' | 'email_notification' | 'trading_signal';
+  parameters: {
+    coin_symbol?: string;
+    price_target?: number;
+    email?: string;
+    message?: string;
+    notification_type?: 'email' | 'app';
+  };
+  status: 'pending' | 'active' | 'completed' | 'failed';
+  created_at: string;
+  completed_at?: string;
 }

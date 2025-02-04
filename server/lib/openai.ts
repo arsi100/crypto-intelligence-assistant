@@ -1,5 +1,11 @@
 import OpenAI from "openai";
-import type { CryptoPrice, NewsArticle, TradingSignal, DailyAnalysis } from "../../client/src/lib/types";
+import type { CryptoPrice, NewsArticle, TradingSignal, DailyAnalysis, AgentTask } from "../../client/src/lib/types";
+import { getMarketPrices, getTechnicalIndicators } from "./market";
+import { getLatestNews } from "./news";
+import { db } from "@db";
+import { messages } from "@db/schema";
+import { eq } from "drizzle-orm";
+import { createAgentTask } from "./agent";
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY is required");
@@ -7,90 +13,83 @@ if (!process.env.OPENAI_API_KEY) {
 
 const openai = new OpenAI();
 
+// the newest OpenAI model is "gpt-4o" which was released May 13, 2024
 export async function processMessage(
   message: string,
-  cryptoData: CryptoPrice[],
-  newsData: NewsArticle[]
-): Promise<{ message: string; cryptoData: CryptoPrice[]; newsData: NewsArticle[] }> {
+  chatId: number
+): Promise<{ message: string; cryptoData: CryptoPrice[]; newsData: NewsArticle[]; tasks?: AgentTask[] }> {
   try {
-    const systemMessage = `You are an expert cryptocurrency analyst with deep knowledge of technical analysis, market psychology, and blockchain technology. Your role is to:
+    // Get user's chat history for context
+    const chatHistory = await db.query.messages.findMany({
+      where: eq(messages.chat_id, chatId),
+      orderBy: (messages, { asc }) => [asc(messages.timestamp)],
+      limit: 10 // Get last 10 messages for context
+    });
 
-1. Provide detailed market analysis considering:
-   - Price movements and technical indicators (RSI, MACD, Moving Averages)
-   - Market sentiment and news impact
-   - Historical patterns and correlations between assets
-   - On-chain metrics and network activity
-   - Market dominance and volume analysis
-   - Support and resistance levels based on ATH/ATL data
+    // Fetch real-time market data and news
+    const [cryptoData, newsData, technicalData] = await Promise.all([
+      getMarketPrices(),
+      getLatestNews(),
+      getTechnicalIndicators("BTC") // Get BTC indicators as baseline
+    ]);
 
-2. When analyzing potential price movements:
-   - Consider the asset's historical performance (ATH/ATL)
-   - Evaluate current market conditions and liquidity
-   - Analyze trading volume and market depth
-   - Compare with broader market trends
-   - Factor in market capitalization and supply metrics
-   - Target 1% daily gains with appropriate risk management
-   - Provide specific entry/exit points and stop-loss levels
+    const systemMessage = `You are an expert cryptocurrency analyst and AI agent. Your role is to:
 
-3. For specific coin analysis:
-   - Compare with relevant competitors
-   - Evaluate on-chain metrics and network health
-   - Assess market positioning and adoption metrics
-   - Analyze volume-to-market-cap ratios
-   - Consider circulating supply impact
-   - Provide clear buy/sell/hold signals with confidence scores
-   - Include risk assessment and potential downsides
+1. Analyze Market Data:
+   - Only use the provided real-time market data for analysis
+   - Consider technical indicators and price movements
+   - Look for patterns in trading volume and market cap
+   - Base recommendations on actual market conditions
 
-Keep responses comprehensive yet accessible, focusing on actionable insights.
-When making predictions, explain your reasoning clearly and include supporting data points.
+2. Use Chat History:
+   - Consider user's previous questions and preferences
+   - Maintain context from earlier conversations
+   - Adapt responses based on user's knowledge level
+   - Keep track of discussed topics and interests
 
-If giving trading signals, structure them clearly in your response like this:
----SIGNALS START---
-BTC: [ACTION] at $[PRICE] (Confidence: [SCORE])
-Stop Loss: $[PRICE] | Take Profit: $[PRICE]
-Reasoning: [Brief explanation]
----SIGNALS END---`;
+3. When acting as an agent:
+   - Identify when tasks like email alerts or notifications are needed
+   - Keep track of user preferences and alert thresholds
+   - Suggest automated actions when appropriate
+   - Be explicit about what automated tasks you can perform
 
-    const prompt = `Analyze this user message and provide insights using the current market data and news:
+Do not reference external sources like Twitter or forums. Base all analysis solely on the provided market data, technical indicators, and news.
 
-User message: ${message}
+If you identify a need for automation (like price alerts or notifications), format it in your response like this:
+---TASK START---
+Type: price_alert | email_notification | trading_signal
+Parameters: {
+  "coin_symbol": "BTC",
+  "price_target": 50000,
+  "email": "user@example.com",
+  "message": "Price target reached"
+}
+---TASK END---`;
 
-Current market metrics for tracked cryptocurrencies:
+    const prompt = `Analyze this request using only the following real-time data:
+
+Market Data:
 ${cryptoData.map(crypto => 
-  `${crypto.name} (${crypto.symbol}):
-  - Price: $${crypto.current_price}
-  - 24h Change: ${crypto.price_change_percentage_24h.toFixed(2)}%
-  - Market Cap: $${crypto.market_cap.toLocaleString()}
-  - 24h Volume: $${crypto.total_volume.toLocaleString()}
-  - Supply: ${crypto.circulating_supply.toLocaleString()}
-  - ATH: $${crypto.ath} (${crypto.ath_change_percentage.toFixed(2)}% from ATH)
-  - ATL: $${crypto.atl} (${crypto.atl_change_percentage.toFixed(2)}% from ATL)
-  - Last Updated: ${new Date(crypto.last_updated).toLocaleString()}`
+  `${crypto.symbol}:
+   - Price: $${crypto.current_price.toLocaleString()}
+   - 24h Change: ${crypto.price_change_percentage_24h.toFixed(2)}%
+   - Volume: $${crypto.total_volume.toLocaleString()}
+   - Market Cap: $${crypto.market_cap.toLocaleString()}`
 ).join('\n\n')}
 
-Latest news:
-${newsData.map(article => 
-  `- ${article.title} (${article.source})`
-).join('\n')}
+Technical Indicators:
+${JSON.stringify(technicalData.Data, null, 2)}
 
-Technical Analysis Focus:
-1. Identify key support/resistance levels based on ATH/ATL data
-2. Analyze volume trends and market depth
-3. Consider market dominance and sector rotation
-4. Factor in news sentiment impact
-5. Target 1% daily gains with appropriate risk management
-6. Provide specific trading signals with confidence scores
+Recent News:
+${newsData.map(article => `- ${article.title} (${article.source})`).join('\n')}
 
-Provide a detailed analysis that:
-1. Directly answers the user's query
-2. Includes relevant technical indicators and market metrics
-3. Identifies potential opportunities and risks
-4. Explains the reasoning behind predictions using data points
-5. Considers broader market context and correlations`;
+Chat History:
+${chatHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
 
-    console.log("Sending request to OpenAI...");
+User Request: ${message}`;
+
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: prompt }
@@ -103,59 +102,27 @@ Provide a detailed analysis that:
       throw new Error("No response content from OpenAI");
     }
 
-    console.log("Received response from OpenAI");
     const content = response.choices[0].message.content;
+    const tasks: AgentTask[] = [];
 
-    // Parse trading signals if they exist
-    const signals: TradingSignal[] = [];
-    if (content.includes('---SIGNALS START---') && content.includes('---SIGNALS END---')) {
-      const signalsText = content.split('---SIGNALS START---')[1].split('---SIGNALS END---')[0];
-      const signalLines = signalsText.split('\n').filter(line => line.trim());
+    // Parse and create agent tasks if present
+    if (content.includes('---TASK START---') && content.includes('---TASK END---')) {
+      const taskText = content.split('---TASK START---')[1].split('---TASK END---')[0];
+      const taskLines = taskText.split('\n').filter(line => line.trim());
 
-      for (let i = 0; i < signalLines.length; i += 3) {
-        const actionLine = signalLines[i];
-        const levelsLine = signalLines[i + 1];
-        const reasoningLine = signalLines[i + 2];
+      const type = taskLines[0].split(': ')[1].trim() as AgentTask["type"];
+      const parametersText = taskLines.slice(1).join('\n');
+      const parameters = JSON.parse(parametersText.split('Parameters: ')[1]);
 
-        if (actionLine && levelsLine && reasoningLine) {
-          const [symbol, rest] = actionLine.split(':');
-          const action = rest.includes('BUY') ? 'buy' : rest.includes('SELL') ? 'sell' : 'hold';
-          const price = parseFloat(rest.match(/\$(\d+(\.\d+)?)/)?.[1] || '0');
-          const confidence = parseFloat(rest.match(/Confidence: (0\.\d+)/)?.[1] || '0.5');
-
-          const stopLoss = parseFloat(levelsLine.match(/Stop Loss: \$(\d+(\.\d+)?)/)?.[1] || '0');
-          const takeProfit = parseFloat(levelsLine.match(/Take Profit: \$(\d+(\.\d+)?)/)?.[1] || '0');
-
-          const reasoning = reasoningLine.replace('Reasoning:', '').trim();
-
-          signals.push({
-            coin_symbol: symbol.trim(),
-            action,
-            target_price: price,
-            stop_loss: stopLoss,
-            take_profit: takeProfit,
-            confidence_score: confidence,
-            reasoning,
-            timestamp: new Date().toISOString()
-          });
-        }
-      }
+      const task = await createAgentTask(type, parameters, chatId);
+      tasks.push(task);
     }
-
-    // Update crypto data with signals
-    const updatedCryptoData = cryptoData.map(crypto => {
-      const signal = signals.find(s => s.coin_symbol === crypto.symbol);
-      return {
-        ...crypto,
-        trade_signal: signal?.action || 'hold',
-        confidence_score: signal?.confidence_score || 0.5
-      };
-    });
 
     return {
       message: content,
-      cryptoData: updatedCryptoData,
-      newsData
+      cryptoData,
+      newsData,
+      tasks: tasks.length > 0 ? tasks : undefined
     };
   } catch (error) {
     console.error("Error processing message with OpenAI:", error);

@@ -1,11 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { messages, chats } from "@db/schema";
-import { analyzeCrypto } from "./services/openai";
+import { messages, chats, agentTasks } from "@db/schema";
+import { processMessage } from "./lib/openai";
+import { startAgentTaskProcessor } from "./lib/agent";
 import { eq } from "drizzle-orm";
 
 export function registerRoutes(app: Express): Server {
+  // Start the agent task processor
+  startAgentTaskProcessor();
+
   // Create a new chat session
   app.post("/api/chat", async (req, res) => {
     try {
@@ -25,17 +29,18 @@ export function registerRoutes(app: Express): Server {
         role: "user"
       });
 
-      // Get AI response
-      const response = await analyzeCrypto(userMessage, "");
+      // Get AI response with chat history context and potential agent tasks
+      const { message: response, cryptoData, newsData, tasks } = await processMessage(userMessage, chatId);
 
       // Store AI response
       await db.insert(messages).values({
         chat_id: chatId,
         content: response,
-        role: "assistant"
+        role: "assistant",
+        metadata: { cryptoData, newsData }
       });
 
-      res.json({ response, chatId });
+      res.json({ response, chatId, cryptoData, newsData, tasks });
     } catch (error) {
       console.error("Chat error:", error);
       res.status(500).json({ error: "Failed to process chat message" });
@@ -52,6 +57,21 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching chat history:", error);
       res.status(500).json({ error: "Failed to fetch chat history" });
+    }
+  });
+
+  // Get agent tasks for a chat
+  app.get("/api/chat/:chatId/tasks", async (req, res) => {
+    try {
+      const chatId = parseInt(req.params.chatId);
+      const tasks = await db.query.agentTasks.findMany({
+        where: eq(agentTasks.chat_id, chatId),
+        orderBy: (agentTasks, { desc }) => [desc(agentTasks.created_at)]
+      });
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      res.status(500).json({ error: "Failed to fetch tasks" });
     }
   });
 
