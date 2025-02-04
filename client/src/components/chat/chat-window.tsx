@@ -15,28 +15,28 @@ export function ChatWindow() {
   // Get current messages
   const { data: messages = [], isLoading: isLoadingHistory } = useQuery({
     queryKey: ["/api/chat/history"],
-    initialData: [], // Provide empty array as initial data
+    initialData: [],
   });
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current;
-      setTimeout(() => {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }, 100); // Small delay to ensure content is rendered
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   };
+
+  // Force scroll on every message change or pending state change
+  useEffect(() => {
+    const timeoutId = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timeoutId);
+  }, [messages.length, messages]);
 
   const mutation = useMutation({
     mutationFn: sendChatMessage,
     onMutate: async (newMessage) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["/api/chat/history"] });
-
-      // Snapshot the previous value
       const previousMessages = queryClient.getQueryData(["/api/chat/history"]);
 
-      // Optimistically update to the new value
+      // Optimistic update
       const optimisticMessage = {
         id: `temp-${Date.now()}`,
         content: newMessage,
@@ -45,12 +45,10 @@ export function ChatWindow() {
       };
 
       queryClient.setQueryData(["/api/chat/history"], (old: any[] = []) => [...old, optimisticMessage]);
-
       scrollToBottom();
       return { previousMessages };
     },
     onError: (error, _, context) => {
-      // Revert to the previous value if there's an error
       queryClient.setQueryData(["/api/chat/history"], context?.previousMessages);
       toast({
         title: "Error",
@@ -60,16 +58,9 @@ export function ChatWindow() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat/history"] });
-    },
-    onSettled: () => {
       scrollToBottom();
     }
   });
-
-  // Scroll to bottom on initial load and when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages.length]);
 
   return (
     <div className="flex flex-col h-full">

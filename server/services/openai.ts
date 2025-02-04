@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getTopCoins, getCoinHistory, type CoinData } from "./coingecko";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -9,39 +10,26 @@ export async function analyzeCrypto(prompt: string, context: string): Promise<st
       throw new Error("OpenAI API key not configured");
     }
 
+    // Fetch real-time market data
+    const marketData = await getTopCoins(10);
+
+    // Format market data for context
+    const marketContext = marketData.map(coin => (
+      `${coin.name} (${coin.symbol.toUpperCase()}): $${coin.current_price.toLocaleString()}, ` +
+      `24h Change: ${coin.price_change_percentage_24h.toFixed(2)}%, ` +
+      `Market Cap: $${coin.market_cap.toLocaleString()}`
+    )).join('\n');
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are a personal crypto trading consultant focused on achieving 1-3% daily returns through comprehensive market analysis. Your responses should be concise, actionable, and conversational while incorporating:
-
-Real-time Market Analysis:
-- Technical patterns (support/resistance, chart formations)
-- Volume analysis and whale movements
-- Exchange inflows/outflows
-- Key price levels and momentum indicators
-
-Social Intelligence:
-- Latest community sentiment from crypto forums
-- Trending topics in crypto Twitter
-- Notable Discord/Telegram discussions
-- Emerging narratives and market psychology
-
-Trading Strategy:
-1. Current market opportunity (1-3 sentences)
-2. Key entry/exit points
-3. Specific trade recommendation
-4. Risk management steps
-5. Expected return timeline
-
-Be direct and personal in your communication style, like a trusted trading advisor having a conversation. Focus on actionable insights that can lead to 1-3% daily gains.
-
-Remember to include a brief risk warning.`
+          content: `You are a crypto trading assistant. Base your analysis ONLY on the following real-time market data:\n\n${marketContext}\n\nDo not make up any data or reference external sources like Twitter or forums. Only analyze the provided market data.`
         },
         {
           role: "user",
-          content: `Context: ${context}\n\nQuery: ${prompt}`
+          content: prompt
         }
       ],
       temperature: 0.7,
@@ -51,6 +39,6 @@ Remember to include a brief risk warning.`
     return response.choices[0].message.content || "Sorry, I couldn't analyze that.";
   } catch (error) {
     console.error("OpenAI API error:", error);
-    throw new Error(`Failed to get AI analysis: ${error.message}`);
+    throw new Error(`Failed to get AI analysis: ${(error as Error).message}`);
   }
 }
