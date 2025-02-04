@@ -17,11 +17,15 @@ services:
         sync: false
       - key: CRYPTOCOMPARE_API_KEY
         sync: false
+      - key: SESSION_SECRET
+        generateValue: true
     buildFilter:
       paths:
         - client/**
         - server/**
         - db/**
+        - package.json
+        - tsconfig.json
     headers:
       - path: /*
         name: Cache-Control
