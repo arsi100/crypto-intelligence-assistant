@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageInput } from "./message-input";
-import { sendChatMessage, getChatHistory } from "@/lib/api";
+import { sendChatMessage } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -63,9 +63,7 @@ export function ChatWindow() {
 
   return (
     <div className="flex flex-col h-full bg-chat-pattern">
-      <ScrollArea 
-        className="flex-1 p-4 bg-gradient-to-b from-background/95 to-background/90 backdrop-blur-sm"
-      >
+      <ScrollArea className="flex-1 p-4">
         <div className="space-y-4 max-w-3xl mx-auto">
           {isLoadingHistory ? (
             <div className="flex justify-center p-4">
@@ -76,19 +74,19 @@ export function ChatWindow() {
               {messages.map((msg: any) => (
                 <Card
                   key={msg.id}
-                  className={`p-4 shadow-md backdrop-blur-sm ${
+                  className={`p-4 shadow-md ${
                     msg.role === "user"
-                      ? "bg-primary/90 text-primary-foreground ml-12"
-                      : "bg-muted/90 text-muted-foreground mr-12"
+                      ? "bg-primary/95 text-primary-foreground ml-auto max-w-[80%]"
+                      : "bg-card/95 text-card-foreground mr-auto max-w-[80%]"
                   } rounded-2xl ${
-                    msg.role === "user" ? "rounded-tr-sm" : "rounded-tl-sm"
+                    msg.role === "user" ? "rounded-br-none" : "rounded-bl-none"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                 </Card>
               ))}
               {mutation.isPending && (
-                <Card className="p-4 bg-muted/40 animate-pulse mr-12 rounded-2xl rounded-tl-sm backdrop-blur-sm">
+                <Card className="p-4 bg-card/40 animate-pulse mr-auto max-w-[80%] rounded-2xl rounded-bl-none">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <p>Analyzing market data...</p>
