@@ -11,17 +11,27 @@ export function ChatWindow() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [shouldScroll, setShouldScroll] = useState(false);
+  const [localMessages, setLocalMessages] = useState<any[]>([]);
 
   const { data: messages, isLoading: isLoadingHistory } = useQuery({
     queryKey: ["/api/chat/history"],
+    onSuccess: (data) => {
+      setLocalMessages(data || []);
+    },
   });
 
   const mutation = useMutation({
     mutationFn: sendChatMessage,
+    onMutate: async (newMessage) => {
+      // Add user message immediately to local state
+      setLocalMessages(prev => [...prev, {
+        id: Date.now(),
+        role: 'user',
+        content: newMessage
+      }]);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat/history"] });
-      setShouldScroll(true);
     },
     onError: () => {
       toast({
@@ -33,13 +43,12 @@ export function ChatWindow() {
   });
 
   useEffect(() => {
-    // Scroll to bottom when messages change or after sending a message
-    if (scrollAreaRef.current && (shouldScroll || mutation.isPending)) {
+    // Scroll to bottom whenever messages change or during loading
+    if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current;
       scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      setShouldScroll(false);
     }
-  }, [messages, shouldScroll, mutation.isPending]);
+  }, [localMessages, mutation.isPending]);
 
   return (
     <div className="flex flex-col h-full">
@@ -51,18 +60,20 @@ export function ChatWindow() {
             </div>
           ) : (
             <>
-              {messages?.map((msg: any) => (
+              {localMessages.map((msg: any) => (
                 <Card
                   key={msg.id}
                   className={`p-4 ${
-                    msg.role === "user" ? "bg-primary/10" : "bg-muted"
+                    msg.role === "user" 
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80"
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 </Card>
               ))}
               {mutation.isPending && (
-                <Card className="p-4 bg-muted">
+                <Card className="p-4 bg-muted/60">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <p>Analyzing market data...</p>
