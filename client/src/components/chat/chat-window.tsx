@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,44 +11,32 @@ export function ChatWindow() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [localMessages, setLocalMessages] = useState<any[]>([]);
 
   const { data: messages, isLoading: isLoadingHistory } = useQuery({
     queryKey: ["/api/chat/history"],
-    onSuccess: (data) => {
-      setLocalMessages(data || []);
-    },
   });
 
   const mutation = useMutation({
     mutationFn: sendChatMessage,
-    onMutate: async (newMessage) => {
-      // Add user message immediately to local state
-      setLocalMessages(prev => [...prev, {
-        id: Date.now(),
-        role: 'user',
-        content: newMessage
-      }]);
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send message",
+        variant: "destructive"
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/chat/history"] });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat/history"] });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to send message",
-        variant: "destructive"
-      });
     }
   });
 
   useEffect(() => {
-    // Scroll to bottom whenever messages change or during loading
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current;
       scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
-  }, [localMessages, mutation.isPending]);
+  }, [messages, mutation.isPending]);
 
   return (
     <div className="flex flex-col h-full">
@@ -60,20 +48,20 @@ export function ChatWindow() {
             </div>
           ) : (
             <>
-              {localMessages.map((msg: any) => (
+              {messages?.map((msg: any) => (
                 <Card
                   key={msg.id}
                   className={`p-4 ${
-                    msg.role === "user" 
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted hover:bg-muted/80"
+                    msg.role === "user"
+                      ? "bg-primary/90 text-primary-foreground"
+                      : "bg-secondary/80 text-secondary-foreground"
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 </Card>
               ))}
               {mutation.isPending && (
-                <Card className="p-4 bg-muted/60">
+                <Card className="p-4 bg-secondary/40 animate-pulse">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <p>Analyzing market data...</p>

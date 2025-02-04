@@ -5,6 +5,10 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
 export async function analyzeCrypto(prompt: string, context: string): Promise<string> {
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OpenAI API key not configured");
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -47,6 +51,6 @@ Remember to include a brief risk warning.`
     return response.choices[0].message.content || "Sorry, I couldn't analyze that.";
   } catch (error) {
     console.error("OpenAI API error:", error);
-    throw new Error("Failed to get AI analysis");
+    throw new Error(`Failed to get AI analysis: ${error.message}`);
   }
 }
