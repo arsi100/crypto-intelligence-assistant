@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,6 +11,7 @@ export function ChatWindow() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [shouldScroll, setShouldScroll] = useState(false);
 
   const { data: messages, isLoading: isLoadingHistory } = useQuery({
     queryKey: ["/api/chat/history"],
@@ -20,6 +21,7 @@ export function ChatWindow() {
     mutationFn: sendChatMessage,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat/history"] });
+      setShouldScroll(true);
     },
     onError: () => {
       toast({
@@ -31,12 +33,13 @@ export function ChatWindow() {
   });
 
   useEffect(() => {
-    // Scroll to bottom when messages change
-    if (scrollAreaRef.current) {
+    // Scroll to bottom when messages change or after sending a message
+    if (scrollAreaRef.current && (shouldScroll || mutation.isPending)) {
       const scrollContainer = scrollAreaRef.current;
       scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      setShouldScroll(false);
     }
-  }, [messages]);
+  }, [messages, shouldScroll, mutation.isPending]);
 
   return (
     <div className="flex flex-col h-full">
@@ -47,24 +50,26 @@ export function ChatWindow() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : (
-            messages?.map((msg: any) => (
-              <Card
-                key={msg.id}
-                className={`p-4 ${
-                  msg.role === "user" ? "bg-primary/10" : "bg-muted"
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
-              </Card>
-            ))
-          )}
-          {mutation.isPending && (
-            <Card className="p-4 bg-muted">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <p>Analyzing market data...</p>
-              </div>
-            </Card>
+            <>
+              {messages?.map((msg: any) => (
+                <Card
+                  key={msg.id}
+                  className={`p-4 ${
+                    msg.role === "user" ? "bg-primary/10" : "bg-muted"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                </Card>
+              ))}
+              {mutation.isPending && (
+                <Card className="p-4 bg-muted">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <p>Analyzing market data...</p>
+                  </div>
+                </Card>
+              )}
+            </>
           )}
         </div>
       </ScrollArea>
