@@ -12,31 +12,64 @@ export function ChatWindow() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: messages, isLoading: isLoadingHistory } = useQuery({
+  // Get current messages
+  const { data: messages = [], isLoading: isLoadingHistory } = useQuery({
     queryKey: ["/api/chat/history"],
+    initialData: [], // Provide empty array as initial data
   });
+
+  const scrollToBottom = () => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current;
+      setTimeout(() => {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }, 100); // Small delay to ensure content is rendered
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: sendChatMessage,
-    onError: (error) => {
+    onMutate: async (newMessage) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/chat/history"] });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData(["/api/chat/history"]);
+
+      // Optimistically update to the new value
+      const optimisticMessage = {
+        id: `temp-${Date.now()}`,
+        content: newMessage,
+        role: "user",
+        timestamp: new Date().toISOString()
+      };
+
+      queryClient.setQueryData(["/api/chat/history"], (old: any[] = []) => [...old, optimisticMessage]);
+
+      scrollToBottom();
+      return { previousMessages };
+    },
+    onError: (error, _, context) => {
+      // Revert to the previous value if there's an error
+      queryClient.setQueryData(["/api/chat/history"], context?.previousMessages);
       toast({
         title: "Error",
         description: error.message || "Failed to send message",
         variant: "destructive"
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/chat/history"] });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat/history"] });
+    },
+    onSettled: () => {
+      scrollToBottom();
     }
   });
 
+  // Scroll to bottom on initial load and when messages change
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current;
-      scrollContainer.scrollTop = scrollContainer.scrollHeight;
-    }
-  }, [messages, mutation.isPending]);
+    scrollToBottom();
+  }, [messages.length]);
 
   return (
     <div className="flex flex-col h-full">
@@ -48,7 +81,7 @@ export function ChatWindow() {
             </div>
           ) : (
             <>
-              {messages?.map((msg: any) => (
+              {messages.map((msg: any) => (
                 <Card
                   key={msg.id}
                   className={`p-4 ${
