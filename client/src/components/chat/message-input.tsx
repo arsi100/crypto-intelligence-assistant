@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SendIcon } from "lucide-react";
@@ -19,11 +19,22 @@ export function MessageInput({ onSend, isLoading }: MessageInputProps) {
     }
   };
 
+  const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (message.trim() && !isLoading) {
+        onSend(message.trim());
+        setMessage("");
+      }
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="flex gap-2">
       <Textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
+        onKeyDown={handleKeyPress}
         placeholder="Ask about crypto markets..."
         className="resize-none"
         rows={2}
