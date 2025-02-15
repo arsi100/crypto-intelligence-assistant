@@ -18,59 +18,47 @@ export async function processMessage(
   chatId: number
 ): Promise<{ message: string; cryptoData: CryptoPrice[]; newsData: NewsArticle[]; tasks?: AgentTask[] }> {
   try {
-    // Get user's chat history for context
-    const chatHistory = await db.query.messages.findMany({
-      where: eq(messages.chat_id, chatId),
-      orderBy: (messages, { asc }) => [asc(messages.timestamp)],
-      limit: 10 // Get last 10 messages for context
-    });
-
-    // Fetch real-time market data and news
     const [cryptoData, newsData, technicalData] = await Promise.all([
       getMarketPrices(),
       getLatestNews(),
-      getTechnicalIndicators("BTC") // Get BTC indicators as baseline
+      getTechnicalIndicators("BTC")
     ]);
 
-    const systemMessage = `You are an expert cryptocurrency analyst and AI agent. Your role is to:
+    const systemMessage = `You are a cryptocurrency trading analyst. Follow these rules strictly:
 
-1. Analyze Market Data:
-   - Use the provided real-time market data for analysis
-   - Consider technical indicators and price movements
-   - Look for patterns in trading volume and market cap
-   - Base recommendations on actual market conditions
+1. USE ONLY THE PROVIDED DATA. Do not invent or hallucinate prices or statistics.
+2. Keep responses SHORT and ACTIONABLE - 2-4 bullet points or a brief paragraph.
+3. Always include source attribution (e.g. "Source: CryptoCompare data")
+4. Format trading suggestions as: "Symbol: Action @ Price, Stop: $X, Target: $Y (Confidence: High/Medium/Low)"
+5. No lengthy disclaimers - just a brief "DYOR" if needed.
+6. If technical terms used (RSI, MACD etc), explain briefly why they matter.
 
-2. Use Chat History:
-   - Consider user's previous questions and preferences
-   - Maintain context from earlier conversations
-   - Adapt responses based on user's knowledge level
-   - Keep track of discussed topics and interests
+Response format:
+• Current Market: 1-2 lines on key price/volume moves
+• Trading Signal: Specific entry/exit levels with stop-loss
+• Quick Rationale: Why this trade? (technical/volume/news)
+• Risk Note: One line on key risk`;
 
-Important: Do not suggest or mention features like price alerts, email notifications, or automated tasks as these are not yet implemented. Focus only on providing market analysis and insights based on the current data.
+    const prompt = `Analyze using ONLY this real-time data:
 
-Do not reference external sources like Twitter or forums. Base all analysis solely on the provided market data, technical indicators, and news.`;
+MARKET DATA (Source: CryptoCompare):
+${cryptoData.map(coin => 
+  `${coin.symbol}: $${coin.current_price.toLocaleString()}
+   24h Change: ${coin.price_change_percentage_24h.toFixed(2)}%
+   Volume: $${(coin.total_volume/1e6).toFixed(1)}M`
+).join('\n')}
 
-    const prompt = `Analyze this request using only the following real-time data:
+TECHNICAL INDICATORS:
+RSI: ${technicalData.rsi || 'N/A'}
+Volume Change: ${technicalData.volume_change_24h || 'N/A'}%
+${technicalData.macd ? `MACD: ${technicalData.macd}` : ''}
 
-Market Data:
-${cryptoData.map(crypto => 
-  `${crypto.symbol}:
-   - Price: $${crypto.current_price.toLocaleString()}
-   - 24h Change: ${crypto.price_change_percentage_24h.toFixed(2)}%
-   - Volume: $${crypto.total_volume.toLocaleString()}
-   - Market Cap: $${crypto.market_cap.toLocaleString()}`
-).join('\n\n')}
+RECENT NEWS:
+${newsData.slice(0,2).map(article => `• ${article.title} (${article.source})`).join('\n')}
 
-Technical Indicators:
-${JSON.stringify(technicalData.Data, null, 2)}
+User Question: ${message}
 
-Recent News:
-${newsData.map(article => `- ${article.title} (${article.source})`).join('\n')}
-
-Chat History:
-${chatHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
-
-User Request: ${message}`;
+Remember: Use ONLY above data. No price hallucination. Keep it brief and actionable.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -79,25 +67,20 @@ User Request: ${message}`;
         { role: "user", content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 500,
     });
 
-    if (!response.choices[0].message.content) {
-      throw new Error("No response content from OpenAI");
-    }
-
-    const content = response.choices[0].message.content;
+    const content = response.choices[0].message.content || "Unable to analyze at this time.";
 
     return {
       message: content,
-      cryptoData,
-      newsData
+      cryptoData: cryptoData.slice(0, 4),  // Only send top 4 coins data for display
+      newsData: newsData.slice(0, 2)       // Only send 2 most recent news items
     };
   } catch (error) {
     console.error("Error processing message with OpenAI:", error);
-    if (error instanceof Error) {
-      throw new Error(`Failed to process message: ${error.message}`);
-    }
-    throw new Error("Failed to process message with AI");
+    throw error instanceof Error 
+      ? new Error(`Failed to process message: ${error.message}`)
+      : new Error("Failed to process message with AI");
   }
 }

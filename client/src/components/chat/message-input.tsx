@@ -2,7 +2,7 @@ import { useState, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SendIcon } from "lucide-react";
-import { Loader2 } from "lucide-react"; // Added import for Loader2
+import { Loader2 } from "lucide-react";
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -40,11 +40,15 @@ export function MessageInput({ onSend, isLoading }: MessageInputProps) {
         className="resize-none min-h-[80px]"
         disabled={isLoading}
       />
-      <Button type="submit" disabled={isLoading || !message.trim()}>
+      <Button
+        type="submit"
+        disabled={isLoading || !message.trim()}
+        className="bg-transparent border border-white/20 hover:bg-green-500/10"
+      >
         {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin text-green-500" />
         ) : (
-          <SendIcon className="h-4 w-4" />
+          <SendIcon className="h-4 w-4 text-green-500" />
         )}
       </Button>
     </form>

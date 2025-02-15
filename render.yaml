@@ -25,6 +25,7 @@ services:
         - server/**
         - db/**
         - package.json
+        - package-lock.json
         - tsconfig.json
     headers:
       - path: /*
@@ -37,6 +38,8 @@ services:
       name: data
       mountPath: /data
       sizeGB: 1
+    dependsOn:
+      - crypto_intelligence_db
 
 databases:
   - name: crypto_intelligence_db

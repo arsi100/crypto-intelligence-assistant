@@ -12,7 +12,7 @@ function mapToCryptoPrice(symbol: string, data: any): CryptoPrice {
     const price = {
       id: symbol.toLowerCase(),
       symbol: symbol,
-      name: symbol,
+      name: data.FROMSYMBOL || symbol,
       current_price: data.PRICE || 0,
       price_change_percentage_24h: data.CHANGEPCT24HOUR || 0,
       market_cap: data.MKTCAP || 0,
@@ -20,7 +20,6 @@ function mapToCryptoPrice(symbol: string, data: any): CryptoPrice {
       circulating_supply: data.SUPPLY || 0,
       last_updated: new Date().toISOString()
     };
-    console.log(`Processed price data for ${symbol}:`, price);
     return price;
   } catch (error) {
     console.error(`Error mapping price data for ${symbol}:`, error);
@@ -28,15 +27,15 @@ function mapToCryptoPrice(symbol: string, data: any): CryptoPrice {
   }
 }
 
-export async function getMarketPrices(symbols: string[] = ["BTC", "ETH", "SOL", "LINK", "MATIC", "SHIB", "LTC", "XRP"]): Promise<CryptoPrice[]> {
+export async function getMarketPrices(): Promise<CryptoPrice[]> {
   try {
+    const symbols = ["BTC", "ETH", "SOL", "LINK", "MATIC", "BNB", "XRP", "ADA"];
     console.log("Fetching market prices for symbols:", symbols);
+
     const url = new URL(CRYPTOCOMPARE_API);
     url.searchParams.append("fsyms", symbols.join(","));
     url.searchParams.append("tsyms", "USD");
     url.searchParams.append("api_key", process.env.CRYPTOCOMPARE_API_KEY || "");
-
-    console.log("Requesting URL:", url.toString());
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -45,16 +44,12 @@ export async function getMarketPrices(symbols: string[] = ["BTC", "ETH", "SOL", 
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("CryptoCompare API error:", errorText);
       throw new Error(`Failed to fetch market prices: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log("Raw API response:", JSON.stringify(data, null, 2));
 
     if (!data.RAW) {
-      console.error("Invalid API response format:", data);
       throw new Error("Invalid API response format - missing RAW data");
     }
 
@@ -62,7 +57,6 @@ export async function getMarketPrices(symbols: string[] = ["BTC", "ETH", "SOL", 
       mapToCryptoPrice(symbol, coinData.USD)
     );
 
-    console.log("Processed prices:", prices);
     return prices;
   } catch (error) {
     console.error("Error fetching market prices:", error);

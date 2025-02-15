@@ -4,11 +4,28 @@ import { db } from "@db";
 import { messages, chats, agentTasks } from "@db/schema";
 import { processMessage } from "./lib/openai";
 import { startAgentTaskProcessor } from "./lib/agent";
+import { getMarketPrices } from "./lib/market";
 import { eq } from "drizzle-orm";
 
 export function registerRoutes(app: Express): Server {
   // Start the agent task processor
   startAgentTaskProcessor();
+
+  // Health check endpoint for Render
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({ status: "healthy" });
+  });
+
+  // Get top cryptocurrencies market data
+  app.get("/api/market/top", async (_req, res) => {
+    try {
+      const marketData = await getMarketPrices();
+      res.json(marketData);
+    } catch (error) {
+      console.error("Error fetching market data:", error);
+      res.status(500).json({ error: "Failed to fetch market data" });
+    }
+  });
 
   // Create a new chat session
   app.post("/api/chat", async (req, res) => {

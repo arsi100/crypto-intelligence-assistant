@@ -3,18 +3,113 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --popover: 224 71% 4%;
+    --popover-foreground: 215 20.2% 65.1%;
+
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+
+    --card: 222 47% 4%;
+    --card-foreground: 210 40% 98%;
+
+    --primary: 160 84% 39%;
+    --primary-foreground: 222 47% 1%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --ring: 216 34% 17%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 222 47% 3%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-border: 216 34% 17%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 222 47% 1%;
+    --sidebar-accent: 216 34% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-ring: 216 34% 17%;
+
+    --chart-1: 160 84% 39%;
+    --chart-2: 176 84% 39%;
+    --chart-3: 190 84% 39%;
+    --chart-4: 205 84% 39%;
+    --chart-5: 220 84% 39%;
+  }
+}
+
+@layer base {
   * {
     @apply border-border;
   }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    background-image: 
+      radial-gradient(
+        circle at 50% 0%, 
+        hsl(160 84% 39% / 0.15),
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 0% 50%, 
+        hsl(176 84% 39% / 0.1),
+        transparent 50%
+      );
   }
+}
+
+.bg-gradient-mesh {
+  background-color: rgba(17, 17, 23, 0.2);
+  background-image: 
+    linear-gradient(to right, hsl(var(--primary) / 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--primary) / 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.bg-glass {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--card) / 0.9) 0%,
+    hsl(var(--card) / 0.4) 100%
+  );
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(var(--primary) / 0.2);
+}
+
+.bg-glow {
+  position: relative;
+}
+
+.bg-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 0%, 
+    hsl(var(--primary) / 0.15),
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
 @layer utilities {
   .bg-chat-pattern {
-    background-color: #ece5dd;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' width='80' height='80'%3E%3Cg fill='%23d7ccc8' fill-opacity='0.12'%3E%3Ccircle r='3' cx='20' cy='20'/%3E%3Cpath d='M10 30s10-5 20 0-10 15 0 20' fill='none' stroke='%23d7ccc8' stroke-width='1.5'/%3E%3Crect x='50' y='15' width='10' height='10' transform='rotate(30 55 20)'/%3E%3Cpath d='M60 50s-10 5-10 15 10 5 10 15' fill='none' stroke='%23d7ccc8' stroke-width='1.5'/%3E%3Ccircle r='3' cx='65' cy='35'/%3E%3Cpath d='M25 60l10-10-10-10' fill='none' stroke='%23d7ccc8' stroke-width='1.5'/%3E%3Crect x='35' y='45' width='8' height='8' transform='rotate(-15 39 49)'/%3E%3C/g%3E%3C/svg%3E");
+    background-color: transparent;
+    background-image: none;
   }
 }

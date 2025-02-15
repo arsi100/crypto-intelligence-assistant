@@ -9,6 +9,7 @@ export interface Message {
   };
 }
 
+// Market data types
 export interface CryptoPrice {
   id: string;
   symbol: string;
@@ -19,19 +20,6 @@ export interface CryptoPrice {
   total_volume: number;
   circulating_supply: number;
   last_updated: string;
-  // Technical indicators
-  rsi_24h?: number;
-  support_level?: number;
-  resistance_level?: number;
-  trade_signal?: 'buy' | 'sell' | 'hold';
-  confidence_score?: number;
-}
-
-export interface NewsArticle {
-  title: string;
-  url: string;
-  source: string;
-  published_at: string;
 }
 
 export interface MarketData {
@@ -41,6 +29,7 @@ export interface MarketData {
   market_cap_change_percentage_24h: number;
 }
 
+// Trading related types
 export interface TradingSignal {
   coin_symbol: string;
   action: 'buy' | 'sell' | 'hold';
@@ -57,6 +46,13 @@ export interface DailyAnalysis {
   signals: TradingSignal[];
   market_summary: string;
   risk_level: 'low' | 'medium' | 'high';
+}
+
+export interface NewsArticle {
+  title: string;
+  url: string;
+  source: string;
+  published_at: string;
 }
 
 export interface ChatResponse {
