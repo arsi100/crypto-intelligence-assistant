@@ -6,17 +6,18 @@ import { db } from "@db";
 import { messages } from "@db/schema";
 import { eq } from "drizzle-orm";
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error("OPENAI_API_KEY is required");
-}
-
-const openai = new OpenAI();
-
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024
 export async function processMessage(
   message: string,
   chatId: number
 ): Promise<{ message: string; cryptoData: CryptoPrice[]; newsData: NewsArticle[]; tasks?: AgentTask[] }> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is required");
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+
   try {
     // Get user's chat history for context
     const chatHistory = await db.query.messages.findMany({

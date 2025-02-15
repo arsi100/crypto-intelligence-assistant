@@ -1,10 +1,8 @@
 import type { CryptoPrice, MarketData } from "../../client/src/lib/types";
+import { db } from "@db";
+import { market_history, technical_indicators } from "@db/schema";
 
 const CRYPTOCOMPARE_API = "https://min-api.cryptocompare.com/data/pricemultifull";
-
-if (!process.env.CRYPTOCOMPARE_API_KEY) {
-  throw new Error("CRYPTOCOMPARE_API_KEY is required");
-}
 
 // Map raw API response to our CryptoPrice type
 function mapToCryptoPrice(symbol: string, data: any): CryptoPrice {
@@ -29,6 +27,10 @@ function mapToCryptoPrice(symbol: string, data: any): CryptoPrice {
 }
 
 export async function getMarketPrices(symbols: string[] = ["BTC", "ETH", "SOL", "LINK", "MATIC", "SHIB", "LTC", "XRP"]): Promise<CryptoPrice[]> {
+  if (!process.env.CRYPTOCOMPARE_API_KEY) {
+    throw new Error("CRYPTOCOMPARE_API_KEY is required");
+  }
+  
   try {
     console.log("Fetching market prices for symbols:", symbols);
     const url = new URL(CRYPTOCOMPARE_API);
@@ -84,6 +86,20 @@ export async function getHistoricalData(symbol: string, limit: number = 7): Prom
 
     const data = await response.json();
     console.log(`Historical data for ${symbol}:`, data);
+
+    // Store historical data
+    if (data.Data && Array.isArray(data.Data)) {
+      await Promise.all(data.Data.map(async (item: any) => {
+        await db.insert(market_history).values({
+          symbol: symbol,
+          price: item.close,
+          volume: item.volumeto,
+          market_cap: item.market_cap || 0,
+          timestamp: new Date(item.time * 1000)
+        });
+      }));
+    }
+
     return data.Data;
   } catch (error) {
     console.error("Error fetching historical data:", error);
@@ -104,6 +120,50 @@ export async function getTechnicalIndicators(symbol: string): Promise<any> {
 
     const data = await response.json();
     console.log(`Technical indicators for ${symbol}:`, data);
+
+    // Store technical indicators
+    if (data.Data) {
+      const indicators = data.Data;
+      const timestamp = new Date();
+      
+      // Store RSI
+      if (indicators.RSI) {
+        await db.insert(technical_indicators).values({
+          symbol,
+          indicator_type: 'RSI',
+          value: indicators.RSI,
+          parameters: { period: 14 },
+          timestamp
+        });
+      }
+
+      // Store MACD
+      if (indicators.MACD) {
+        await db.insert(technical_indicators).values({
+          symbol,
+          indicator_type: 'MACD',
+          value: indicators.MACD,
+          parameters: { 
+            fast_period: 12,
+            slow_period: 26,
+            signal_period: 9
+          },
+          timestamp
+        });
+      }
+
+      // Store Moving Averages
+      if (indicators.MA) {
+        await db.insert(technical_indicators).values({
+          symbol,
+          indicator_type: 'MA',
+          value: indicators.MA,
+          parameters: { period: 20 },
+          timestamp
+        });
+      }
+    }
+
     return data;
   } catch (error) {
     console.error("Error fetching technical indicators:", error);

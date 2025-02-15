@@ -1,10 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { messages, chats, agentTasks } from "@db/schema";
+import { messages, chats, agentTasks, reddit_posts, market_history, technical_indicators } from "@db/schema";
 import { processMessage } from "./lib/openai";
 import { startAgentTaskProcessor } from "./lib/agent";
-import { eq } from "drizzle-orm";
+import { eq, desc, and, gte } from "drizzle-orm";
+import { getRedditPosts, updateRedditSentiments } from "./lib/news";
 
 export function registerRoutes(app: Express): Server {
   // Start the agent task processor
@@ -72,6 +73,74 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching tasks:", error);
       res.status(500).json({ error: "Failed to fetch tasks" });
+    }
+  });
+
+  // Get Reddit posts
+  app.get("/api/reddit/posts", async (req, res) => {
+    try {
+      const posts = await db.query.reddit_posts.findMany({
+        orderBy: (posts, { desc }) => [desc(posts.created_at)],
+        limit: 10
+      });
+      res.json(posts);
+    } catch (error) {
+      console.error("Error fetching Reddit posts:", error);
+      res.status(500).json({ error: "Failed to fetch Reddit posts" });
+    }
+  });
+
+  // Get market history for a symbol
+  app.get("/api/market/history/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const { days = "7" } = req.query;
+      
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(days as string));
+
+      const history = await db.query.market_history.findMany({
+        where: and(
+          eq(market_history.symbol, symbol.toUpperCase()),
+          gte(market_history.timestamp, startDate)
+        ),
+        orderBy: (history, { asc }) => [asc(history.timestamp)]
+      });
+      
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching market history:", error);
+      res.status(500).json({ error: "Failed to fetch market history" });
+    }
+  });
+
+  // Get technical indicators for a symbol
+  app.get("/api/market/indicators/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      
+      const indicators = await db.query.technical_indicators.findMany({
+        where: eq(technical_indicators.symbol, symbol.toUpperCase()),
+        orderBy: (indicators, { desc }) => [desc(indicators.timestamp)],
+        limit: 1
+      });
+      
+      res.json(indicators);
+    } catch (error) {
+      console.error("Error fetching technical indicators:", error);
+      res.status(500).json({ error: "Failed to fetch technical indicators" });
+    }
+  });
+
+  // Manually trigger Reddit posts update
+  app.post("/api/reddit/update", async (req, res) => {
+    try {
+      await getRedditPosts();
+      await updateRedditSentiments();
+      res.json({ message: "Reddit posts updated successfully" });
+    } catch (error) {
+      console.error("Error updating Reddit posts:", error);
+      res.status(500).json({ error: "Failed to update Reddit posts" });
     }
   });
 
